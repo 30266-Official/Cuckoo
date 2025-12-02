@@ -17,6 +17,7 @@
 
 if(!defined('__TYPECHO_ROOT_DIR__'))
   exit;
+// 读取根目录的 endtime.json 并生成显示文本（含默认“获取中”提示），同时读取 updatatime 用于鼠标悬浮显示
 $endtime_display = "<span id='endtime'>:D 获取中...</span>";
 $tooltip_attr = '';
 $data_has_attr = '';
@@ -25,7 +26,8 @@ if (file_exists($endtime_file)) {
   $json = @file_get_contents($endtime_file);
   $data = @json_decode($json, true);
   if (json_last_error() === JSON_ERROR_NONE && $data) {
-    // 取出 endtim    if (is_array($data)) {
+    // 取出 endtime
+    if (is_array($data)) {
       if (isset($data['endtime'])) {
         $val = $data['endtime'];
       } elseif (isset($data['date'])) {
@@ -34,6 +36,7 @@ if (file_exists($endtime_file)) {
         $first = reset($data);
         $val = is_scalar($first) ? $first : '';
       }
+      // 取出 updatatime（可能不存在）
       if (isset($data['updatatime'])) {
         $upval = $data['updatatime'];
       } else {
@@ -43,6 +46,7 @@ if (file_exists($endtime_file)) {
       $val = $data;
       $upval = null;
     }
+    // 格式化 endtime
     if ($val !== null && $val !== '') {
       $formatted = '';
       if (is_numeric($val) || (is_string($val) && ctype_digit($val))) {
@@ -56,6 +60,7 @@ if (file_exists($endtime_file)) {
           $formatted = htmlspecialchars($val);
         }
       }
+        // 格式化 updatatime（若存在）
         $formatted_up = '';
         if ($upval !== null && $upval !== '') {
           if (is_numeric($upval) || (is_string($upval) && ctype_digit($upval))) {
@@ -70,12 +75,17 @@ if (file_exists($endtime_file)) {
             }
           }
         }
+        // 准备 tooltip 属性（放到整行容器上，触发区域为整行），默认空字符串
         $tooltip_attr = '';
         if ($formatted_up !== '') {
           $content = "更新时间：" . $formatted_up;
+          // 转义单引号以便在属性内使用单引号包裹
           $safe_content = str_replace("'", "\\'", $content);
+          // 生成类似： mdui-tooltip="{content: '更新时间：yy年mm月dd日', position: 'bottom'}"
           $tooltip_attr = " mdui-tooltip=\"{content: '" . $safe_content . "', position: 'bottom'}\"";
+          // 同时准备内联更新时间元素（用于移动端显示）
           $endtime_update = "<div class='endtime-update'>" . htmlspecialchars($content) . "</div>";
+          // 标记 data 属性用于 CSS/JS 响应式处理
           $data_has_attr = " data-has-update=\"1\"";
         } else {
           $tooltip_attr = '';
@@ -168,6 +178,7 @@ if (file_exists($endtime_file)) {
   if (style.styleSheet) style.styleSheet.cssText = css; else style.appendChild(document.createTextNode(css));
   document.getElementsByTagName('head')[0].appendChild(style);
 })();
+// 立即在窄屏上移除可能存在的 mdui-tooltip 属性，防止触摸设备显示悬浮提示
 (function(){
   if (window && window.innerWidth <= 600) {
     var els = document.querySelectorAll('[mdui-tooltip][data-has-update]');
@@ -197,9 +208,10 @@ if (file_exists($endtime_file)) {
     }
     if (val === undefined || val === null || val === '') return;
     var out = '';
+    // 数字视为 unix 秒时间戳（若看起来是毫秒则直接使用）
     if (!isNaN(val) && val !== '') {
       var ts = Number(val);
-      if (ts < 1e12) ts = ts * 1000;
+      if (ts < 1e12) ts = ts * 1000; // 转为毫秒
       var d = new Date(ts);
       out = pad2(d.getFullYear() % 100) + '年' + pad2(d.getMonth() + 1) + '月' + pad2(d.getDate()) + '日';
     } else {
@@ -212,6 +224,7 @@ if (file_exists($endtime_file)) {
       }
     }
     el.textContent = out;
+    // 处理 updatatime 并设置悬浮提示（格式与 endtime 相同）
     var upval;
     if (typeof data === 'object') {
       if (data.updatatime !== undefined) upval = data.updatatime;
@@ -233,23 +246,27 @@ if (file_exists($endtime_file)) {
           upout = String(upval);
         }
       }
+      // 把 tooltip 放到整行父元素上，使用 MDUI tooltip，位置在底部
       var parent = el.parentElement;
       if (parent) {
         var safe = ('更新时间：' + upout).replace(/'/g, "\\'");
+        // 设置内联更新时间元素（用于移动端）
         var updateEl = parent.querySelector('.endtime-update');
         if (updateEl) updateEl.textContent = '更新时间：' + upout;
         else {
           var d = document.createElement('div'); d.className = 'endtime-update'; d.textContent = '更新时间：' + upout; parent.appendChild(d);
         }
         parent.setAttribute('data-has-update', '1');
+        // 设置 MDUI tooltip，但在窄屏移除 tooltip，以使用内联显示
         parent.setAttribute('mdui-tooltip', "{content: '" + safe + "', position: 'bottom'}");
         if (window.innerWidth <= 600) {
           parent.removeAttribute('mdui-tooltip');
         }
+        // 移除可能存在的原生 title
         parent.removeAttribute('title');
       }
     }
-  }).catch(function(){ });
+  }).catch(function(){ /* 保持 "获取中..." */ });
 })();
 </script>
 <span class="mdui-text-color-theme"></span>
