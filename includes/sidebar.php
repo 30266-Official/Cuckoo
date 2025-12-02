@@ -107,8 +107,53 @@ if (file_exists($endtime_file)) {
     </div>
     <div class="sidebar-info-body">
       <div class="sidebar-info-name"><?php echo Helper::options()->title ?></div>
-      <div class="sidebar-info-desc"><?php setting("describe", "<span id='hitokoto'>:D 获取中...</span>", 1); ?></div>
-      <div class="sidebar-info-desc"<?php echo $tooltip_attr . $data_has_attr; ?>>服务器下次到期时间：<?php echo $endtime_display; ?><?php echo isset($endtime_update) ? $endtime_update : ''; ?></div>
+        <div class="sidebar-info-desc"><?php setting("describe", "<span id='hitokoto'>:D 获取中...</span>", 1); ?></div>
+        <div class="sidebar-info-endtime" style="font-size:15px;margin-top:5px;">
+        <?php
+        $expired_display = '';
+        $samplePath = dirname(__DIR__) . '/Sample.php';
+        if (file_exists($samplePath)) {
+          ob_start();
+          try {
+            include $samplePath;
+            $out = trim(ob_get_clean());
+            $pos = strpos($out, '{');
+            if ($pos !== false) {
+              $jsonStr = substr($out, $pos);
+              $data = json_decode($jsonStr, true);
+              if ($data !== null) {
+                function _find_key($arr, $keyName) {
+                  if (!is_array($arr)) return null;
+                  if (array_key_exists($keyName, $arr)) return $arr[$keyName];
+                  foreach ($arr as $v) {
+                    if (is_array($v)) {
+                      $r = _find_key($v, $keyName);
+                      if ($r !== null) return $r;
+                    }
+                  }
+                  return null;
+                }
+                $expired = _find_key($data, 'ExpiredTime');
+                if ($expired !== null) {
+                  $ts = strtotime($expired);
+                  if ($ts !== false) {
+                    $expired_display = date('y年m月d日', $ts);
+                  } elseif (is_numeric($expired)) {
+                    if ($expired > 9999999999) $expired = (int)($expired / 1000);
+                    $expired_display = date('y年m月d日', (int)$expired);
+                  } else {
+                    $expired_display = htmlspecialchars($expired);
+                  }
+                }
+              }
+            }
+          } catch (Throwable $e) {
+            ob_end_clean();
+          }
+        }
+        echo $expired_display ? $expired_display : "<span id='endtime'>获取中...</span>";
+        ?>
+        </div>
     </div>
   </div>
   <?php if ($this->options->showComments) { ?>
