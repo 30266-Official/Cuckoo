@@ -17,7 +17,6 @@
 
 if(!defined('__TYPECHO_ROOT_DIR__'))
   exit;
-// 读取根目录的 endtime.json 并生成显示文本（含默认“获取中”提示），同时读取 updatatime 用于鼠标悬浮显示
 $endtime_display = "<span id='endtime'>:D 获取中...</span>";
 $tooltip_attr = '';
 $data_has_attr = '';
@@ -26,7 +25,6 @@ if (file_exists($endtime_file)) {
   $json = @file_get_contents($endtime_file);
   $data = @json_decode($json, true);
   if (json_last_error() === JSON_ERROR_NONE && $data) {
-    // 取出 endtime
     if (is_array($data)) {
       if (isset($data['endtime'])) {
         $val = $data['endtime'];
@@ -36,7 +34,6 @@ if (file_exists($endtime_file)) {
         $first = reset($data);
         $val = is_scalar($first) ? $first : '';
       }
-      // 取出 updatatime（可能不存在）
       if (isset($data['updatatime'])) {
         $upval = $data['updatatime'];
       } else {
@@ -46,7 +43,6 @@ if (file_exists($endtime_file)) {
       $val = $data;
       $upval = null;
     }
-    // 格式化 endtime
     if ($val !== null && $val !== '') {
       $formatted = '';
       if (is_numeric($val) || (is_string($val) && ctype_digit($val))) {
@@ -60,7 +56,6 @@ if (file_exists($endtime_file)) {
           $formatted = htmlspecialchars($val);
         }
       }
-        // 格式化 updatatime（若存在）
         $formatted_up = '';
         if ($upval !== null && $upval !== '') {
           if (is_numeric($upval) || (is_string($upval) && ctype_digit($upval))) {
@@ -75,17 +70,12 @@ if (file_exists($endtime_file)) {
             }
           }
         }
-        // 准备 tooltip 属性（放到整行容器上，触发区域为整行），默认空字符串
         $tooltip_attr = '';
         if ($formatted_up !== '') {
           $content = "更新时间：" . $formatted_up;
-          // 转义单引号以便在属性内使用单引号包裹
           $safe_content = str_replace("'", "\\'", $content);
-          // 生成类似： mdui-tooltip="{content: '更新时间：yy年mm月dd日', position: 'bottom'}"
           $tooltip_attr = " mdui-tooltip=\"{content: '" . $safe_content . "', position: 'bottom'}\"";
-          // 同时准备内联更新时间元素（用于移动端显示）
           $endtime_update = "<div class='endtime-update'>" . htmlspecialchars($content) . "</div>";
-          // 标记 data 属性用于 CSS/JS 响应式处理
           $data_has_attr = " data-has-update=\"1\"";
         } else {
           $tooltip_attr = '';
@@ -107,53 +97,8 @@ if (file_exists($endtime_file)) {
     </div>
     <div class="sidebar-info-body">
       <div class="sidebar-info-name"><?php echo Helper::options()->title ?></div>
-        <div class="sidebar-info-desc"><?php setting("describe", "<span id='hitokoto'>:D 获取中...</span>", 1); ?></div>
-        <div class="sidebar-info-endtime" style="font-size:15px;margin-top:5px;">
-        <?php
-        $expired_display = '';
-        $samplePath = dirname(__DIR__) . '/Sample.php';
-        if (file_exists($samplePath)) {
-          ob_start();
-          try {
-            include $samplePath;
-            $out = trim(ob_get_clean());
-            $pos = strpos($out, '{');
-            if ($pos !== false) {
-              $jsonStr = substr($out, $pos);
-              $data = json_decode($jsonStr, true);
-              if ($data !== null) {
-                function _find_key($arr, $keyName) {
-                  if (!is_array($arr)) return null;
-                  if (array_key_exists($keyName, $arr)) return $arr[$keyName];
-                  foreach ($arr as $v) {
-                    if (is_array($v)) {
-                      $r = _find_key($v, $keyName);
-                      if ($r !== null) return $r;
-                    }
-                  }
-                  return null;
-                }
-                $expired = _find_key($data, 'ExpiredTime');
-                if ($expired !== null) {
-                  $ts = strtotime($expired);
-                  if ($ts !== false) {
-                    $expired_display = date('y年m月d日', $ts);
-                  } elseif (is_numeric($expired)) {
-                    if ($expired > 9999999999) $expired = (int)($expired / 1000);
-                    $expired_display = date('y年m月d日', (int)$expired);
-                  } else {
-                    $expired_display = htmlspecialchars($expired);
-                  }
-                }
-              }
-            }
-          } catch (Throwable $e) {
-            ob_end_clean();
-          }
-        }
-        echo $expired_display ? $expired_display : "<span id='endtime'>获取中...</span>";
-        ?>
-        </div>
+      <div class="sidebar-info-desc"><?php setting("describe", "<span id='hitokoto'>:D 获取中...</span>", 1); ?></div>
+      <div class="sidebar-info-desc"<?php echo $tooltip_attr . $data_has_attr; ?>>服务器下次到期时间：<?php echo $endtime_display; ?><?php echo isset($endtime_update) ? $endtime_update : ''; ?></div>
     </div>
   </div>
   <?php if ($this->options->showComments) { ?>
@@ -217,13 +162,38 @@ if (file_exists($endtime_file)) {
 </div>
 <script>
 (function(){
-  var css = '\n.sidebar-info-desc .endtime-update{display:none;font-size:12px;color:rgba(0,0,0,.6);margin-top:4px;}\n@media (max-width:600px){\n  .sidebar-info-desc .endtime-update{display:block;}\n  /* 在窄屏上隐藏 MDUI tooltip（如果仍被创建）*/\n  .mdui-tooltip{display:none !important;}\n}\n';
+  var css = '\n.sidebar-info-desc .endtime-update{display:none;font-size:12px;color:rgba(0,0,0,.6);margin-top:4px;}\n@media (max-width:600px){\n  .sidebar-info-desc .endtime-update{display:block;}\n  /* 在窄屏上隐藏 MDUI tooltip（如果仍被创建）*/\n  .mdui-tooltip{display:none !important;}\n}\n' +
+    '.mdui-tooltip{background:#fff !important;color:#222 !important;border:1px solid #eee !important;box-shadow:0 2px 8px rgba(0,0,0,.08) !important;}\n' +
+    '.mdui-theme-layout-dark .mdui-tooltip, body.mdui-theme-layout-dark .mdui-tooltip{background:#222 !important;color:#eee !important;border:1px solid #444 !important;box-shadow:0 2px 8px rgba(0,0,0,.32) !important;}';
   var style = document.createElement('style');
   style.type = 'text/css';
+  style.id = 'tooltip-theme-style';
   if (style.styleSheet) style.styleSheet.cssText = css; else style.appendChild(document.createTextNode(css));
-  document.getElementsByTagName('head')[0].appendChild(style);
+  var head = document.getElementsByTagName('head')[0];
+  var old = document.getElementById('tooltip-theme-style');
+  if (old) old.parentNode.removeChild(old);
+  head.appendChild(style);
+  var html = document.documentElement;
+  if (window.MutationObserver) {
+    var observer = new MutationObserver(function(mutations) {
+      var shouldReplace = false;
+      mutations.forEach(function(mutation) {
+        if (mutation.attributeName === 'class') shouldReplace = true;
+      });
+      if (shouldReplace) {
+        var old = document.getElementById('tooltip-theme-style');
+        if (old) old.parentNode.removeChild(old);
+        var style2 = document.createElement('style');
+        style2.type = 'text/css';
+        style2.id = 'tooltip-theme-style';
+        if (style2.styleSheet) style2.styleSheet.cssText = css; else style2.appendChild(document.createTextNode(css));
+        document.getElementsByTagName('head')[0].appendChild(style2);
+      }
+    });
+    observer.observe(html, { attributes: true });
+    try { observer.observe(document.body, { attributes: true }); } catch(e) { /* ignore */ }
+  }
 })();
-// 立即在窄屏上移除可能存在的 mdui-tooltip 属性，防止触摸设备显示悬浮提示
 (function(){
   if (window && window.innerWidth <= 600) {
     var els = document.querySelectorAll('[mdui-tooltip][data-has-update]');
@@ -253,10 +223,9 @@ if (file_exists($endtime_file)) {
     }
     if (val === undefined || val === null || val === '') return;
     var out = '';
-    // 数字视为 unix 秒时间戳（若看起来是毫秒则直接使用）
     if (!isNaN(val) && val !== '') {
       var ts = Number(val);
-      if (ts < 1e12) ts = ts * 1000; // 转为毫秒
+      if (ts < 1e12) ts = ts * 1000;
       var d = new Date(ts);
       out = pad2(d.getFullYear() % 100) + '年' + pad2(d.getMonth() + 1) + '月' + pad2(d.getDate()) + '日';
     } else {
@@ -269,7 +238,6 @@ if (file_exists($endtime_file)) {
       }
     }
     el.textContent = out;
-    // 处理 updatatime 并设置悬浮提示（格式与 endtime 相同）
     var upval;
     if (typeof data === 'object') {
       if (data.updatatime !== undefined) upval = data.updatatime;
@@ -291,27 +259,23 @@ if (file_exists($endtime_file)) {
           upout = String(upval);
         }
       }
-      // 把 tooltip 放到整行父元素上，使用 MDUI tooltip，位置在底部
       var parent = el.parentElement;
       if (parent) {
         var safe = ('更新时间：' + upout).replace(/'/g, "\\'");
-        // 设置内联更新时间元素（用于移动端）
         var updateEl = parent.querySelector('.endtime-update');
         if (updateEl) updateEl.textContent = '更新时间：' + upout;
         else {
           var d = document.createElement('div'); d.className = 'endtime-update'; d.textContent = '更新时间：' + upout; parent.appendChild(d);
         }
         parent.setAttribute('data-has-update', '1');
-        // 设置 MDUI tooltip，但在窄屏移除 tooltip，以使用内联显示
         parent.setAttribute('mdui-tooltip', "{content: '" + safe + "', position: 'bottom'}");
         if (window.innerWidth <= 600) {
           parent.removeAttribute('mdui-tooltip');
         }
-        // 移除可能存在的原生 title
         parent.removeAttribute('title');
       }
     }
-  }).catch(function(){ /* 保持 "获取中..." */ });
+  }).catch(function(){  });
 })();
 </script>
 <span class="mdui-text-color-theme"></span>
